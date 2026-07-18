@@ -1,0 +1,451 @@
+app:
+  description: 调用Python确定性规则层完成员工、预算、发票和金额预审，并将高风险申请转入人工审批。
+  icon: 💰
+  icon_background: '#E4FBCC'
+  icon_type: emoji
+  mode: workflow
+  name: 企业费用报销预审与人工审批
+  use_icon_as_answer_icon: false
+dependencies: []
+kind: app
+version: 0.6.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      enabled: false
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+  graph:
+    edges:
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: start
+          targetType: http-request
+        id: start-source-precheck-target
+        source: start
+        sourceHandle: source
+        target: precheck
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: http-request
+          targetType: code
+        id: precheck-source-parse-target
+        source: precheck
+        sourceHandle: source
+        target: parse
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: code
+          targetType: if-else
+        id: parse-source-review-target
+        source: parse
+        sourceHandle: source
+        target: review-branch
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: if-else
+          targetType: human-input
+        id: review-branch-true-human-target
+        source: review-branch
+        sourceHandle: 'true'
+        target: human-review
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: if-else
+          targetType: end
+        id: review-branch-false-auto-target
+        source: review-branch
+        sourceHandle: 'false'
+        target: auto-result
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: human-input
+          targetType: end
+        id: human-approved-end-target
+        source: human-review
+        sourceHandle: approve
+        target: human-result
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: human-input
+          targetType: end
+        id: human-rejected-end-target
+        source: human-review
+        sourceHandle: reject
+        target: human-result
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: human-input
+          targetType: end
+        id: human-timeout-end-target
+        source: human-review
+        sourceHandle: __timeout
+        target: human-result
+        targetHandle: target
+        type: custom
+        zIndex: 0
+    nodes:
+      - data:
+          desc: 接收结构化报销表单，避免由模型猜测金额和身份。
+          selected: false
+          title: 报销申请
+          type: start
+          variables:
+            - label: 员工编号
+              max_length: 32
+              options: []
+              required: true
+              type: text-input
+              variable: employee_id
+            - label: 费用类型
+              max_length: 32
+              options: []
+              required: true
+              type: text-input
+              variable: expense_type
+            - label: 报销金额
+              options: []
+              required: true
+              type: number
+              variable: amount
+            - label: 发票号码
+              max_length: 64
+              options: []
+              required: true
+              type: text-input
+              variable: invoice_no
+            - label: 发生日期
+              max_length: 32
+              options: []
+              required: true
+              type: text-input
+              variable: expense_date
+            - label: 用途说明
+              max_length: 500
+              options: []
+              required: true
+              type: paragraph
+              variable: purpose
+        height: 246
+        id: start
+        position:
+          x: 40
+          y: 260
+        positionAbsolute:
+          x: 40
+          y: 260
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+      - data:
+          authorization:
+            type: no-auth
+          body:
+            data:
+              - id: request-body
+                key: ''
+                type: text
+                value: '{"employee_id":"{{#start.employee_id#}}","expense_type":"{{#start.expense_type#}}","amount":{{#start.amount#}},"invoice_no":"{{#start.invoice_no#}}","expense_date":"{{#start.expense_date#}}","purpose":"{{#start.purpose#}}"}'
+            type: json
+          desc: 调用本地Python规则层；Dify容器通过host.docker.internal访问宿主机服务。
+          headers: 'Content-Type:application/json'
+          method: POST
+          params: ''
+          retry_config:
+            enabled: true
+            exponential_backoff:
+              enabled: true
+              max_interval: 5000
+              multiplier: 2
+            max_retries: 2
+            retry_interval: 1000
+          selected: false
+          timeout:
+            connect: 10
+            read: 30
+            write: 30
+          title: Python预审API
+          type: http-request
+          url: http://host.docker.internal:5100/api/precheck
+        height: 150
+        id: precheck
+        position:
+          x: 350
+          y: 260
+        positionAbsolute:
+          x: 350
+          y: 260
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+      - data:
+          code: |-
+            import json
+
+            def main(body: str, status_code: int) -> dict:
+                try:
+                    data = json.loads(body or "{}")
+                except json.JSONDecodeError:
+                    data = {
+                        "decision": "系统异常",
+                        "risk_level": "高",
+                        "reasons": ["预审API返回了非JSON内容"],
+                        "need_human_review": True,
+                        "next_step": "转人工检查接口日志",
+                        "error_code": "INVALID_API_RESPONSE",
+                    }
+                reasons = data.get("reasons") or []
+                return {
+                    "decision": str(data.get("decision", "系统异常")),
+                    "risk_level": str(data.get("risk_level", "高")),
+                    "reason_text": "；".join(str(item) for item in reasons),
+                    "review_flag": "yes" if data.get("need_human_review", True) else "no",
+                    "next_step": str(data.get("next_step", "转人工处理")),
+                    "error_code": str(data.get("error_code") or ""),
+                    "application_id": str(data.get("application_id") or ""),
+                    "http_status": str(status_code),
+                }
+          code_language: python3
+          desc: 只解析API结果，不改变规则层结论。
+          outputs:
+            application_id:
+              children: null
+              type: string
+            decision:
+              children: null
+              type: string
+            error_code:
+              children: null
+              type: string
+            http_status:
+              children: null
+              type: string
+            next_step:
+              children: null
+              type: string
+            reason_text:
+              children: null
+              type: string
+            review_flag:
+              children: null
+              type: string
+            risk_level:
+              children: null
+              type: string
+          selected: false
+          title: 解析预审结果
+          type: code
+          variables:
+            - value_selector:
+                - precheck
+                - body
+              value_type: string
+              variable: body
+            - value_selector:
+                - precheck
+                - status_code
+              value_type: number
+              variable: status_code
+        height: 90
+        id: parse
+        position:
+          x: 660
+          y: 260
+        positionAbsolute:
+          x: 660
+          y: 260
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+      - data:
+          cases:
+            - case_id: 'true'
+              conditions:
+                - comparison_operator: contains
+                  id: review-required
+                  value: 'yes'
+                  varType: string
+                  variable_selector:
+                    - parse
+                    - review_flag
+              id: 'true'
+              logical_operator: and
+          desc: 规则层要求复核时必须进入人工节点。
+          selected: false
+          title: 是否需要人工复核
+          type: if-else
+        height: 126
+        id: review-branch
+        position:
+          x: 970
+          y: 260
+        positionAbsolute:
+          x: 970
+          y: 260
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+      - data:
+          delivery_methods:
+            - enabled: true
+              id: web-review
+              type: webapp
+          form_content: '预审结论：{{#parse.decision#}}\n风险等级：{{#parse.risk_level#}}\n原因：{{#parse.reason_text#}}\n建议：{{#parse.next_step#}}'
+          inputs: []
+          selected: false
+          timeout: 3
+          timeout_unit: day
+          title: 主管或财务人工审批
+          type: human-input
+          user_actions:
+            - button_style: primary
+              id: approve
+              title: 同意进入后续流程
+            - button_style: danger
+              id: reject
+              title: 退回申请人
+        height: 190
+        id: human-review
+        position:
+          x: 1280
+          y: 160
+        positionAbsolute:
+          x: 1280
+          y: 160
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+      - data:
+          desc: 低风险申请的预审输出，不代表最终付款承诺。
+          outputs:
+            - value_selector:
+                - parse
+                - application_id
+              value_type: string
+              variable: application_id
+            - value_selector:
+                - parse
+                - decision
+              value_type: string
+              variable: decision
+            - value_selector:
+                - parse
+                - reason_text
+              value_type: string
+              variable: reasons
+            - value_selector:
+                - parse
+                - next_step
+              value_type: string
+              variable: next_step
+          selected: false
+          title: 自动预审结果
+          type: end
+        height: 142
+        id: auto-result
+        position:
+          x: 1280
+          y: 450
+        positionAbsolute:
+          x: 1280
+          y: 450
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+      - data:
+          desc: 返回人工节点动作及原预审结论。
+          outputs:
+            - value_selector:
+                - human-review
+                - __action_id
+              value_type: string
+              variable: human_action
+            - value_selector:
+                - parse
+                - decision
+              value_type: string
+              variable: precheck_decision
+            - value_selector:
+                - parse
+                - reason_text
+              value_type: string
+              variable: reasons
+            - value_selector:
+                - parse
+                - application_id
+              value_type: string
+              variable: application_id
+          selected: false
+          title: 人工审批结果
+          type: end
+        height: 142
+        id: human-result
+        position:
+          x: 1600
+          y: 160
+        positionAbsolute:
+          x: 1600
+          y: 160
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+    viewport:
+      x: 0
+      y: 0
+      zoom: 0.65
+  rag_pipeline_variables: []

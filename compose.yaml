@@ -1,0 +1,46 @@
+services:
+  ecommerce-agent:
+    build:
+      context: ./ecommerce-customer-service-agent
+    environment:
+      WEB_HOST: 0.0.0.0
+      WEB_PORT: 5000
+    ports:
+      - "5000:5000"
+    volumes:
+      - ecommerce-runtime:/app/.runtime
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  expense-agent:
+    build:
+      context: ./expense-approval-agent
+    environment:
+      WEB_HOST: 0.0.0.0
+      WEB_PORT: 5100
+    ports:
+      - "5100:5100"
+    volumes:
+      - expense-runtime:/app/.runtime
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5100/health', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  ecommerce-runtime:
+  expense-runtime:
