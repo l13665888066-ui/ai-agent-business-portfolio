@@ -1,0 +1,8 @@
+**/.env
+**/.venv/
+**/__pycache__/
+**/.runtime/
+**/*.py[cod]
+**/.pytest_cache/
+outputs/
+qa/

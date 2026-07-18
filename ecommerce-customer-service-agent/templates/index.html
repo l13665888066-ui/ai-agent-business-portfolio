@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>直播电商智能客服 Agent</title>
+  <style>
+    :root { --ink:#132238; --muted:#667085; --brand:#0f766e; --paper:#fff; --bg:#eef4f3; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei",system-ui,sans-serif; color:var(--ink); background:var(--bg); }
+    .shell { width:min(920px,94vw); margin:28px auto; display:grid; grid-template-columns:260px 1fr; gap:18px; }
+    .panel { background:var(--paper); border-radius:18px; box-shadow:0 14px 40px rgba(15,35,50,.08); }
+    aside { padding:24px; }
+    h1 { font-size:22px; margin:0 0 10px; }
+    .tag { display:inline-block; padding:5px 9px; border-radius:999px; background:#d9f3ef; color:#075e57; font-size:12px; }
+    .meta { margin:22px 0; font-size:13px; color:var(--muted); line-height:1.8; }
+    .samples button { width:100%; text-align:left; border:0; background:#f4f7f7; border-radius:10px; padding:10px; margin:5px 0; cursor:pointer; color:var(--ink); }
+    main { min-height:650px; display:flex; flex-direction:column; overflow:hidden; }
+    header { padding:20px 24px; border-bottom:1px solid #edf0f2; }
+    header p { margin:6px 0 0; color:var(--muted); font-size:13px; }
+    #messages { flex:1; padding:24px; overflow:auto; }
+    .msg { max-width:82%; padding:12px 15px; border-radius:14px; margin:9px 0; line-height:1.65; white-space:pre-wrap; }
+    .user { margin-left:auto; background:var(--brand); color:#fff; border-bottom-right-radius:4px; }
+    .agent { background:#f2f5f6; border-bottom-left-radius:4px; }
+    .path { display:block; margin-top:7px; font-size:11px; color:#77808c; }
+    form { display:flex; gap:10px; padding:18px; border-top:1px solid #edf0f2; }
+    input { flex:1; border:1px solid #d8dee3; border-radius:12px; padding:13px; font-size:15px; }
+    form button { border:0; border-radius:12px; background:var(--brand); color:#fff; padding:0 22px; cursor:pointer; }
+    @media(max-width:760px){ .shell{grid-template-columns:1fr}.panel:first-child{display:none} main{min-height:86vh} }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="panel">
+      <span class="tag">求职演示原型</span>
+      <h1>电商客服 Agent</h1>
+      <div class="meta">演示用户：U1001<br>可查询订单：DD1001<br>其他用户订单：DD1002</div>
+      <div class="samples">
+        <strong>演示问题</strong>
+        <button>我的订单发货了吗？</button>
+        <button>DD1001的物流到哪里了？</button>
+        <button>DRESS-BLACK-M还有库存吗？</button>
+        <button>衣服洗过还能退吗？</button>
+        <button>质量太差了，我要投诉！</button>
+      </div>
+    </aside>
+    <main class="panel">
+      <header><strong>直播电商智能客服</strong><p>受控路由 · RAG · Tool · 多轮上下文 · 权限校验</p></header>
+      <section id="messages"><div class="msg agent">您好，我可以协助查询订单、物流、库存、退款及店铺规则。</div></section>
+      <form id="chat-form"><input id="message" autocomplete="off" placeholder="请输入问题"><button>发送</button></form>
+    </main>
+  </div>
+  <script>
+    const messages=document.querySelector('#messages');
+    const input=document.querySelector('#message');
+    const sessionId=crypto.randomUUID();
+    function add(text,role,path=''){const div=document.createElement('div');div.className=`msg ${role}`;div.textContent=text;if(path){const s=document.createElement('span');s.className='path';s.textContent=`处理路径：${path}`;div.appendChild(s)}messages.appendChild(div);messages.scrollTop=messages.scrollHeight}
+    async function send(text){add(text,'user');input.value='';try{const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,session_id:sessionId,user_id:'U1001'})});const data=await res.json();add(data.answer,'agent',data.path)}catch(e){add('服务暂时不可用，请确认业务API和Web服务已启动。','agent','system_error')}}
+    document.querySelector('#chat-form').addEventListener('submit',e=>{e.preventDefault();if(input.value.trim())send(input.value.trim())});
+    document.querySelectorAll('.samples button').forEach(btn=>btn.addEventListener('click',()=>send(btn.textContent)));
+  </script>
+</body>
+</html>
