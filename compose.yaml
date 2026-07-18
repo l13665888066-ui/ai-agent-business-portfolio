@@ -5,6 +5,8 @@ services:
     environment:
       WEB_HOST: 0.0.0.0
       WEB_PORT: 5000
+      BUSINESS_API_URL: http://ecommerce-mock-api:8765
+      BUSINESS_API_TOKEN: demo-token
     ports:
       - "5000:5000"
     volumes:
@@ -19,6 +21,22 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    depends_on:
+      ecommerce-mock-api:
+        condition: service_started
+
+  ecommerce-mock-api:
+    build:
+      context: ./ecommerce-customer-service-agent
+    command:
+      - python
+      - mock_business_api.py
+    environment:
+      MOCK_API_HOST: 0.0.0.0
+      MOCK_API_PORT: 8765
+      BUSINESS_API_TOKEN: demo-token
+    expose:
+      - "8765"
 
   expense-agent:
     build:
