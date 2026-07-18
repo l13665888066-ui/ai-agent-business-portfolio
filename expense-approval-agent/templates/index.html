@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>报销预审与审批协同 Agent</title>
+  <style>
+    :root{--brand:#3157d5;--ink:#172033;--muted:#667085;--bg:#eef2f8;--paper:#fff}*{box-sizing:border-box}
+    body{margin:0;font-family:"Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+    .wrap{width:min(1050px,94vw);margin:28px auto}.head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px}.head h1{margin:0;font-size:25px}.head p{margin:5px 0 0;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}.card{background:var(--paper);border-radius:16px;box-shadow:0 12px 34px rgba(33,53,85,.08);padding:22px}
+    form{display:grid;grid-template-columns:1fr 1fr;gap:14px}label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}.full{grid-column:1/-1}input,select,textarea{width:100%;padding:11px 12px;border:1px solid #d5dbe6;border-radius:10px;font:inherit}textarea{min-height:86px;resize:vertical}
+    button{grid-column:1/-1;border:0;border-radius:10px;padding:13px;background:var(--brand);color:white;font-weight:700;cursor:pointer}.status{display:inline-block;background:#e6ecff;color:#2448bd;border-radius:999px;padding:5px 9px;font-size:12px}
+    #result{line-height:1.75}.empty{color:var(--muted);padding:50px 10px;text-align:center}.decision{font-size:28px;font-weight:800;margin:12px 0}.risk{color:#b54708}.list{padding-left:19px}.meta{background:#f6f8fb;padding:12px;border-radius:10px;margin-top:12px;font-size:13px}
+    @media(max-width:760px){.grid{grid-template-columns:1fr}form{grid-template-columns:1fr}.full,button{grid-column:1}}
+  </style>
+</head>
+<body><div class="wrap">
+  <div class="head"><div><h1>企业费用报销预审 Agent</h1><p>结构化校验 · 制度检索 · 预算查询 · 人工审批 · 审计日志</p></div><span class="status">个人演示原型</span></div>
+  <div class="grid"><section class="card"><form id="form">
+    <div><label>员工编号</label><input name="employee_id" value="E1001"></div>
+    <div><label>费用类型</label><select name="expense_type"><option>交通费</option><option>餐饮费</option><option>差旅费</option><option>办公费</option></select></div>
+    <div><label>报销金额</label><input name="amount" type="number" value="680"></div>
+    <div><label>发票号码</label><input name="invoice_no" value="INV-DEMO-001"></div>
+    <div><label>发生日期</label><input name="expense_date" type="date" value="2026-07-01"></div>
+    <div><label>所属部门（系统将以员工档案为准）</label><input name="department" value="销售部"></div>
+    <div class="full"><label>用途说明</label><textarea name="purpose">拜访客户产生的高铁费用</textarea></div>
+    <button>提交AI预审</button>
+  </form></section>
+  <section class="card" id="result"><div class="empty">填写报销信息后查看预审结果</div></section></div>
+</div><script>
+const form=document.querySelector('#form'),result=document.querySelector('#result');
+form.addEventListener('submit',async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form));const res=await fetch('/api/precheck',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const d=await res.json();result.innerHTML=`<span class="status">${d.success?'流程完成':'需要处理'}</span><div class="decision">${d.decision}</div><div class="risk">风险等级：${d.risk_level}</div><h3>判断依据</h3><ul class="list">${d.reasons.map(x=>`<li>${x}</li>`).join('')}</ul>${d.missing_fields.length?`<h3>缺失材料</h3><ul>${d.missing_fields.map(x=>`<li>${x}</li>`).join('')}</ul>`:''}<div class="meta">下一步：${d.next_step}<br>审批单号：${d.application_id??'未生成'}<br>制度来源：${d.policy_sources.join('、')||'无'}</div>`});
+</script></body></html>
