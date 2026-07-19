@@ -19,6 +19,14 @@
 
 ![报销审批 Agent 低风险预审演示](docs/screenshots/expense-agent-demo.png)
 
+### Dify 工作流 Web App
+
+![Dify 报销工作流自动预审成功](docs/screenshots/dify-expense-webapp-success.png)
+
+### Dify 人工审批节点
+
+![Dify 报销工作流进入主管人工复核](docs/screenshots/dify-expense-human-approval.png)
+
 ## 一键启动
 
 前置条件：Docker Desktop 已启动。
@@ -47,6 +55,7 @@ docker compose down
 - 客服 Agent 可在首轮缺少订单号时追问，下一轮接收 `DD1001` 后调用 Tool 返回订单状态。
 - 用户 `U2002` 查询不属于自己的 `DD1001` 时返回 `ACCESS_DENIED`。
 - 报销 Agent 对有效员工、680元交通费和新发票号返回“初步通过”；中高风险申请进入主管或财务复核。
+- 报销工作流已在本地 Dify `1.16.0` 完成导入、发布、自动预审和人工复核暂停验证。
 
 ## Dify 工作流
 

@@ -337,9 +337,13 @@ workflow:
       - data:
           delivery_methods:
             - enabled: true
-              id: web-review
+              id: 5af140fb-6b6c-4d2f-9ac3-9bc28c8fa1a1
               type: webapp
-          form_content: '预审结论：{{#parse.decision#}}\n风险等级：{{#parse.risk_level#}}\n原因：{{#parse.reason_text#}}\n建议：{{#parse.next_step#}}'
+          form_content: |-
+            预审结论：{{#parse.decision#}}
+            风险等级：{{#parse.risk_level#}}
+            原因：{{#parse.reason_text#}}
+            建议：{{#parse.next_step#}}
           inputs: []
           selected: false
           timeout: 3
@@ -350,7 +354,7 @@ workflow:
             - button_style: primary
               id: approve
               title: 同意进入后续流程
-            - button_style: danger
+            - button_style: accent
               id: reject
               title: 退回申请人
         height: 190
@@ -373,7 +377,7 @@ workflow:
                 - parse
                 - application_id
               value_type: string
-              variable: application_id
+              variable: auto_application_id
             - value_selector:
                 - parse
                 - decision
@@ -383,7 +387,7 @@ workflow:
                 - parse
                 - reason_text
               value_type: string
-              variable: reasons
+              variable: auto_reasons
             - value_selector:
                 - parse
                 - next_step
