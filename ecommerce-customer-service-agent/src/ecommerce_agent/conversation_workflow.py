@@ -25,6 +25,11 @@ class CustomerConversationWorkflow(AgentWorkflow):
         "ORDER_NOT_FOUND",
         "INVALID_ORDER_ID",
     }
+    ORDER_CONTEXT_TOOLS = {
+        "query_order_tool",
+        "query_logistics_tool",
+        "query_refund_tool",
+    }
 
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
@@ -61,6 +66,43 @@ class CustomerConversationWorkflow(AgentWorkflow):
                 )
         return None
 
+    def _bind_active_order(
+        self,
+        route: Route,
+        session_id: str,
+        user_id: str,
+    ) -> Route:
+        if (
+            not route.need_tool
+            or route.tool_name not in self.ORDER_CONTEXT_TOOLS
+            or "order_id" not in route.missing_params
+            or route.tool_args.get("order_id")
+        ):
+            return route
+
+        active_order = self.memory.get_active_order(
+            session_id,
+            user_id,
+        )
+        if active_order is None:
+            return route
+
+        tool_args = dict(route.tool_args)
+        tool_args["order_id"] = active_order
+        missing_params = [
+            item
+            for item in route.missing_params
+            if item != "order_id"
+        ]
+        return Route(
+            need_tool=route.need_tool,
+            tool_name=route.tool_name,
+            tool_args=tool_args,
+            missing_params=missing_params,
+            need_human=route.need_human,
+            reason=f"{route.reason}；复用当前会话已验证订单",
+        )
+
     def _dispatch(
         self,
         route: Route,
@@ -68,6 +110,7 @@ class CustomerConversationWorkflow(AgentWorkflow):
         session_id: str,
         user_id: str,
     ) -> AgentResponse:
+        route = self._bind_active_order(route, session_id, user_id)
         route.validate()
 
         if route.need_human or route.missing_params:
@@ -78,6 +121,9 @@ class CustomerConversationWorkflow(AgentWorkflow):
             self._last_tool_by_session[session_id] = route.tool_name
 
             if result.success:
+                order_id = str(route.tool_args.get("order_id", "")).upper()
+                if route.tool_name in self.ORDER_CONTEXT_TOOLS and order_id:
+                    self.memory.set_active_order(session_id, order_id, user_id)
                 self.memory.clear_pending(session_id)
             elif result.error_code in self.RETRYABLE_ORDER_ERRORS:
                 self.memory.set_pending(

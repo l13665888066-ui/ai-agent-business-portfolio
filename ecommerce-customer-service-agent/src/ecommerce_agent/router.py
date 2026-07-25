@@ -25,7 +25,19 @@ class RuleBasedRouter:
         order_match = self.ORDER_RE.search(text)
         order_id = order_match.group(0).upper() if order_match else None
 
-        if any(word in text for word in ("物流", "快递", "到哪", "运输")):
+        if any(
+            word in text
+            for word in (
+                "物流",
+                "快递",
+                "到哪",
+                "运输",
+                "多久能到",
+                "什么时候到",
+                "几天能到",
+                "预计到达",
+            )
+        ):
             return self._order_route("query_logistics_tool", order_id, "物流实时查询")
         if any(word in text for word in ("退款进度", "退款到账", "退钱")):
             return self._order_route("query_refund_tool", order_id, "退款实时查询")
