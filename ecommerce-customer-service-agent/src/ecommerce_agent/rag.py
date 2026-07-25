@@ -58,16 +58,23 @@ class VectorRAGService:
     def _ensure_ready(self) -> None:
         if self._vectorstore is not None:
             return
+        from hashlib import sha256
         from langchain_chroma import Chroma
         from langchain_core.output_parsers import StrOutputParser
         from langchain_core.prompts import ChatPromptTemplate
         from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-        docs = self._split(self.knowledge_file.read_text(encoding="utf-8"))
+        knowledge_text = self.knowledge_file.read_text(encoding="utf-8")
+        docs = self._split(knowledge_text)
+        collection_name = (
+            f"ecommerce_knowledge_{sha256(knowledge_text.encode('utf-8')).hexdigest()[:12]}"
+        )
+        document_ids = [f"section-{index}" for index in range(len(docs))]
         embeddings = OpenAIEmbeddings(
             api_key=self.embedding_config["api_key"],
             base_url=self.embedding_config["base_url"],
             model=self.embedding_config["model"],
+            chunk_size=10,
             check_embedding_ctx_length=False,
         )
         self.persist_directory.mkdir(parents=True, exist_ok=True)
@@ -75,7 +82,8 @@ class VectorRAGService:
             documents=docs,
             embedding=embeddings,
             persist_directory=str(self.persist_directory),
-            collection_name="ecommerce_knowledge",
+            collection_name=collection_name,
+            ids=document_ids,
         )
         llm = ChatOpenAI(temperature=0, **self.llm_config)
         prompt = ChatPromptTemplate.from_messages(
