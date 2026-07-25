@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>店铺客服</title>
+  <style>
+    :root {
+      --page:#eef1f4; --surface:#fff; --chat:#f6f7f8; --line:#e4e7eb;
+      --ink:#20262d; --muted:#7b858f; --brand:#247565; --brand-dark:#1b5e51;
+      --user:#dff0eb; --notice:#f1f3f5; --error:#a83f3f;
+    }
+    * { box-sizing:border-box; }
+    html,body { height:100%; }
+    body {
+      margin:0; color:var(--ink); background:var(--page);
+      font:14px/1.6 Inter,"Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+    }
+    button,textarea { font:inherit; }
+    .page { height:100%; display:grid; place-items:center; padding:24px; }
+    .chat-window {
+      width:min(820px,100%); height:min(860px,calc(100vh - 48px)); min-height:560px;
+      display:flex; flex-direction:column; overflow:hidden; border:1px solid #dfe3e7;
+      border-radius:10px; background:var(--surface); box-shadow:0 14px 36px rgba(24,34,45,.08);
+    }
+    .chat-header {
+      min-height:68px; display:flex; align-items:center; gap:12px; padding:0 18px;
+      border-bottom:1px solid var(--line); background:#fff;
+    }
+    .store-avatar,.message-avatar {
+      display:grid; place-items:center; flex:0 0 auto; color:#fff; background:var(--brand); font-weight:700;
+    }
+    .store-avatar { width:40px; height:40px; border-radius:8px; font-size:16px; }
+    .store-info { min-width:0; }
+    .store-name { display:flex; align-items:center; gap:7px; font-size:16px; font-weight:700; }
+    .official {
+      padding:1px 5px; border:1px solid #c7dfd9; border-radius:3px;
+      color:var(--brand-dark); background:#f2f8f6; font-size:10px; font-weight:500;
+    }
+    .store-status { display:flex; align-items:center; gap:6px; margin-top:2px; color:var(--muted); font-size:12px; }
+    .status-dot { width:6px; height:6px; border-radius:50%; background:#4fa77e; }
+    .restart { margin-left:auto; padding:6px 8px; border:0; color:var(--muted); background:transparent; cursor:pointer; font-size:12px; }
+    .restart:hover { color:var(--brand-dark); }
+
+    .messages { flex:1; overflow:auto; padding:20px 22px 28px; background:var(--chat); scroll-behavior:smooth; }
+    .day-divider { margin:0 0 18px; color:#9aa2aa; text-align:center; font-size:11px; }
+    .system-notice {
+      width:max-content; max-width:86%; margin:12px auto; padding:5px 10px;
+      border-radius:4px; color:#8a939c; background:var(--notice); font-size:11px; text-align:center;
+    }
+    .message { display:flex; align-items:flex-start; gap:9px; margin:16px 0; }
+    .message.user { flex-direction:row-reverse; }
+    .message-avatar { width:32px; height:32px; border-radius:7px; font-size:11px; }
+    .message.user .message-avatar { color:#56616b; background:#e2e6ea; }
+    .message-content { max-width:72%; }
+    .message.user .message-content { text-align:right; }
+    .sender { margin:0 3px 4px; color:#89929b; font-size:11px; }
+    .bubble {
+      display:inline-block; padding:10px 13px; border:1px solid var(--line);
+      border-radius:4px 11px 11px 11px; color:#29323a; background:#fff;
+      line-height:1.7; text-align:left; white-space:pre-wrap; box-shadow:0 1px 2px rgba(20,30,40,.03);
+    }
+    .message.user .bubble { border-color:#c9ded8; border-radius:11px 4px 11px 11px; background:var(--user); }
+    .message-time { margin:4px 3px 0; color:#a0a8b0; font-size:10px; }
+    .message.user .message-time { text-align:right; }
+    .error .bubble { color:var(--error); }
+
+    .typing { display:none; align-items:center; gap:5px; margin:8px 0 0 42px; color:#8d969f; font-size:11px; }
+    .typing.show { display:flex; }
+    .typing i { width:5px; height:5px; border-radius:50%; background:#9ca6a1; animation:blink 1.05s infinite ease-in-out; }
+    .typing i:nth-child(2) { animation-delay:.15s; }
+    .typing i:nth-child(3) { animation-delay:.3s; }
+    @keyframes blink {
+      0%,60%,100% { opacity:.35; transform:translateY(0); }
+      30% { opacity:1; transform:translateY(-2px); }
+    }
+
+    .composer { padding:12px 14px 10px; border-top:1px solid var(--line); background:#fff; }
+    .input-box {
+      display:grid; grid-template-columns:1fr auto; align-items:end; gap:10px;
+      padding:8px; border:1px solid #d5dbe0; border-radius:7px; background:#fff;
+    }
+    .input-box:focus-within { border-color:#7ba99f; box-shadow:0 0 0 3px rgba(36,117,101,.07); }
+    textarea {
+      min-height:46px; max-height:112px; resize:none; padding:5px 6px;
+      border:0; outline:0; color:var(--ink); background:transparent; line-height:1.6;
+    }
+    textarea::placeholder { color:#a2a9b0; }
+    .send { height:36px; padding:0 20px; border:0; border-radius:5px; color:#fff; background:var(--brand); cursor:pointer; }
+    .send:hover { background:var(--brand-dark); }
+    .send:disabled { opacity:.5; cursor:not-allowed; }
+    .privacy { margin-top:7px; color:#a0a7ae; font-size:10px; text-align:center; }
+
+    @media(max-width:720px) {
+      .page { padding:0; }
+      .chat-window { width:100%; height:100%; min-height:0; border:0; border-radius:0; box-shadow:none; }
+      .messages { padding:18px 14px 24px; }
+      .message-content { max-width:82%; }
+      .store-status span:last-child { display:none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="chat-window" aria-label="店铺客服会话">
+      <header class="chat-header">
+        <div class="store-avatar">客</div>
+        <div class="store-info">
+          <div class="store-name">店铺客服 <span class="official">官方</span></div>
+          <div class="store-status"><span class="status-dot"></span><span>当前在线 · 服务时间 09:00–24:00</span></div>
+        </div>
+        <button class="restart" id="restart" type="button">重新开始</button>
+      </header>
+
+      <section class="messages" id="messages" aria-live="polite">
+        <div class="day-divider">今天</div>
+        <div class="system-notice">您正在咨询店铺订单与售后问题</div>
+        <div class="message assistant">
+          <div class="message-avatar">客</div>
+          <div class="message-content">
+            <div class="sender">店铺客服</div>
+            <div class="bubble">您好，请问有什么可以帮您？订单、物流、库存或售后问题都可以直接告诉我。</div>
+            <div class="message-time">刚刚</div>
+          </div>
+        </div>
+        <div class="typing" id="typing"><span>客服正在回复</span><i></i><i></i><i></i></div>
+      </section>
+
+      <form class="composer" id="chat-form">
+        <div class="input-box">
+          <textarea id="message" rows="2" autocomplete="off" placeholder="请输入您的问题" aria-label="输入咨询内容"></textarea>
+          <button class="send" id="send-button" type="submit">发送</button>
+        </div>
+        <div class="privacy">请勿发送身份证、银行卡、验证码等敏感信息</div>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    const messages=document.querySelector('#messages');
+    const form=document.querySelector('#chat-form');
+    const input=document.querySelector('#message');
+    const sendButton=document.querySelector('#send-button');
+    const typing=document.querySelector('#typing');
+    let sessionId=crypto.randomUUID();
+    let sending=false;
+
+    function timeText(){
+      return new Intl.DateTimeFormat('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date());
+    }
+
+    function addMessage(text,role,error=false){
+      const row=document.createElement('div');
+      row.className=`message ${role}${error?' error':''}`;
+      const avatar=document.createElement('div');
+      avatar.className='message-avatar';
+      avatar.textContent=role==='user'?'我':'客';
+      const content=document.createElement('div');
+      content.className='message-content';
+      const sender=document.createElement('div');
+      sender.className='sender';
+      sender.textContent=role==='user'?'我':'店铺客服';
+      const bubble=document.createElement('div');
+      bubble.className='bubble';
+      bubble.textContent=text;
+      const time=document.createElement('div');
+      time.className='message-time';
+      time.textContent=timeText();
+      content.append(sender,bubble,time);
+      row.append(avatar,content);
+      messages.insertBefore(row,typing);
+      messages.scrollTop=messages.scrollHeight;
+    }
+
+    function addNotice(text){
+      const notice=document.createElement('div');
+      notice.className='system-notice';
+      notice.textContent=text;
+      messages.insertBefore(notice,typing);
+      messages.scrollTop=messages.scrollHeight;
+    }
+
+    function setSending(value){
+      sending=value;
+      input.disabled=value;
+      sendButton.disabled=value;
+      typing.classList.toggle('show',value);
+      if(value) messages.scrollTop=messages.scrollHeight;
+    }
+
+    async function send(text){
+      const question=text.trim();
+      if(!question||sending) return;
+      addMessage(question,'user');
+      input.value='';
+      setSending(true);
+      try{
+        const response=await fetch('/api/chat',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({message:question,session_id:sessionId,user_id:'U1001'})
+        });
+        const data=await response.json();
+        addMessage(data.answer||'暂时没有查询到相关结果。','assistant');
+        if(data.path==='human') addNotice('正在为您转接人工客服，请稍候。');
+      }catch(error){
+        addMessage('当前服务繁忙，请稍后重试。','assistant',true);
+      }finally{
+        setSending(false);
+        input.focus();
+      }
+    }
+
+    form.addEventListener('submit',event=>{
+      event.preventDefault();
+      send(input.value);
+    });
+
+    input.addEventListener('keydown',event=>{
+      if(event.key==='Enter'&&!event.shiftKey){
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    document.querySelector('#restart').addEventListener('click',()=>{
+      sessionId=crypto.randomUUID();
+      [...messages.querySelectorAll('.message,.system-notice')].forEach(node=>node.remove());
+      addNotice('已开始新的咨询会话');
+      addMessage('您好，请问有什么可以帮您？','assistant');
+      input.focus();
+    });
+  </script>
+</body>
+</html>
