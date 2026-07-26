@@ -1,12 +1,55 @@
-# Docker 运行验收记录
+# 运行验收记录
 
-Compose 启动三个服务：
+更新时间：2026-07-26
 
-- `ecommerce-agent`：客服 Agent Web 与编排层，宿主机端口 `5000`。
-- `ecommerce-mock-api`：订单、物流、库存、退款模拟业务 API，仅容器网络访问。
-- `expense-agent`：费用报销预审与审批协同，宿主机端口 `5100`。
+## 自动化测试
 
-`compose.yaml` 已内置独立的模拟 API 服务，并将客服 Agent 的业务接口地址配置为容器网络地址，避免 Web 容器错误访问自身的 `127.0.0.1:8765`。
+| 项目 | 结果 |
+|---|---:|
+| 直播电商智能客服 Agent | `28/28` |
+| 企业费用报销审批 Agent | `20/20` |
+| 合计 | `48/48` |
+
+测试命令：
+
+```powershell
+cd ecommerce-customer-service-agent
+python -m unittest discover -s tests -v
+
+cd ..\expense-approval-agent
+python -m unittest discover -s tests -v
+```
+
+## 财务审批浏览器闭环
+
+已按真实界面完成以下操作：
+
+1. 员工 `E1001` 提交 3200 元差旅费，状态为 `pending_manager`。
+2. 主管 `M2001` 的待办只出现直属员工申请。
+3. 主管未填写意见直接退回时，系统拦截。
+4. 填写原因后退回，状态变为 `returned`，审批时间线写入退回动作。
+5. 员工补充用途说明并重新提交，状态重新进入 `pending_manager`。
+6. 主管同意后状态变为 `approved`，员工申请记录显示“已通过”。
+7. 申请详情保留提交、退回、重提、审批动作和操作人。
+
+## AI 与 RAG 联网验收
+
+在不输出密钥的前提下，已验证：
+
+- DeepSeek 模型返回 `mode=llm` 的材料摘要和补充建议。
+- 系统摘要由已提交事实生成，模型输出还要经过事实一致性过滤。
+- 阿里云 `text-embedding-v4` 成功生成向量。
+- Chroma 以余弦距离召回制度，并通过费用类型关键词重排。
+- “差旅费、杭州、住宿、高铁”查询首位返回“差旅费规则”。
+- 外部调用失败时进入 `rule_fallback_after_llm_error` 或 `local_fallback`，页面明确显示兜底来源。
+
+## Docker 验收口径
+
+Compose 定义三个服务：
+
+- `ecommerce-agent`
+- `ecommerce-mock-api`
+- `expense-agent`
 
 验收命令：
 
@@ -16,34 +59,12 @@ docker compose up --build -d
 docker compose ps
 ```
 
-运行验收至少覆盖：
+两个 Web 健康检查应返回 `status=ok`。密钥只通过运行环境注入，`.env` 不进入镜像。
 
-1. 两个 Web 服务健康检查返回 `ok`。
-2. 报销金额 680 元、有效员工和新发票号返回“初步通过”。
-3. 客服 Agent 首轮缺少订单号时追问，第二轮提供 `DD1001` 后通过 Tool 返回订单状态。
-4. 用户 `U2002` 查询 `DD1001` 时返回权限拒绝。
+## Dify 边界
 
-## Dify 1.16.0 本地验收
+Dify DSL 保留为可视化编排补充材料，用于展示 HTTP、条件分支和人工节点。旧版独立 Web App 的前端完成态不再作为项目最终验收证据。v2 Python 页面、SQLite 状态机、角色权限、预算占用和审计时间线才是当前可演示的完整闭环。
 
-报销工作流已在本地 Dify `1.16.0` 完成 DSL 导入和发布，Dify 通过 HTTP Request 节点调用宿主机 `5100` 端口的 Python 预审服务。
+## 真实性声明
 
-| 验收项 | 结果 |
-|---|---|
-| DSL 导入、节点检查和发布 | 通过 |
-| 680 元交通费自动预审 | 工作流状态 `succeeded`，输出“初步通过” |
-| 3200 元差旅费规则分支 | 正确暂停在“主管或财务人工审批”节点 |
-| 人工审批表单 | 正确显示预审结论、风险、原因、建议和“同意/退回”动作 |
-| 点击“同意”后的后台输出 | 已产生 `human_action=approve`、预审结论、原因和申请编号 |
-
-本机 Dify `1.16.0` 的独立 Web App 在提交人工动作后，后台已恢复流程并产生完整输出，但前端事件流会显示 `Stopped by user`，后台错误为 `Client response stream closed before app execution completed`。因此当前验收结论是“人工暂停与审批提交可演示，前端完成态仍需在升级 Dify 或修复 SSE 连接后复验”，不把该路径标记为生产就绪。
-
-Dify 的 SSRF 防护没有整体关闭，只对本项目需要的宿主机域名使用最小白名单：
-
-```yaml
-services:
-  ssrf_proxy:
-    environment:
-      SSRF_PROXY_ALLOW_PRIVATE_DOMAINS: host.docker.internal
-```
-
-所有数据均为模拟数据，不代表企业生产环境或真实降本结果。
+所有员工、订单、预算、票据和申请均为模拟数据，不代表企业生产环境或真实降本结果。当前验收证明的是业务拆解、原型实现、异常控制、测试与工程化交付能力。

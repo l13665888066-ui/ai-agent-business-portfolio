@@ -44,6 +44,14 @@ services:
     environment:
       WEB_HOST: 0.0.0.0
       WEB_PORT: 5100
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-flash}
+      ALIYUN_API_KEY: ${ALIYUN_API_KEY:-}
+      ALIYUN_EMBEDDING_BASE_URL: ${ALIYUN_EMBEDDING_BASE_URL:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-v4}
+      EXPENSE_RAG_SCORE_THRESHOLD: ${EXPENSE_RAG_SCORE_THRESHOLD:-1.15}
+      EXPENSE_RAG_TOP_K: ${EXPENSE_RAG_TOP_K:-3}
     ports:
       - "5100:5100"
     volumes:
@@ -57,7 +65,7 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 20s
 
 volumes:
   ecommerce-runtime:

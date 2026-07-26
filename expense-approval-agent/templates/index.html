@@ -1,33 +1,121 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>报销预审与审批协同 Agent</title>
-  <style>
-    :root{--brand:#3157d5;--ink:#172033;--muted:#667085;--bg:#eef2f8;--paper:#fff}*{box-sizing:border-box}
-    body{margin:0;font-family:"Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
-    .wrap{width:min(1050px,94vw);margin:28px auto}.head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px}.head h1{margin:0;font-size:25px}.head p{margin:5px 0 0;color:var(--muted)}
-    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}.card{background:var(--paper);border-radius:16px;box-shadow:0 12px 34px rgba(33,53,85,.08);padding:22px}
-    form{display:grid;grid-template-columns:1fr 1fr;gap:14px}label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}.full{grid-column:1/-1}input,select,textarea{width:100%;padding:11px 12px;border:1px solid #d5dbe6;border-radius:10px;font:inherit}textarea{min-height:86px;resize:vertical}
-    button{grid-column:1/-1;border:0;border-radius:10px;padding:13px;background:var(--brand);color:white;font-weight:700;cursor:pointer}.status{display:inline-block;background:#e6ecff;color:#2448bd;border-radius:999px;padding:5px 9px;font-size:12px}
-    #result{line-height:1.75}.empty{color:var(--muted);padding:50px 10px;text-align:center}.decision{font-size:28px;font-weight:800;margin:12px 0}.risk{color:#b54708}.list{padding-left:19px}.meta{background:#f6f8fb;padding:12px;border-radius:10px;margin-top:12px;font-size:13px}
-    @media(max-width:760px){.grid{grid-template-columns:1fr}form{grid-template-columns:1fr}.full,button{grid-column:1}}
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>企业费用报销中心</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 </head>
-<body><div class="wrap">
-  <div class="head"><div><h1>企业费用报销预审 Agent</h1><p>结构化校验 · 制度检索 · 预算查询 · 人工审批 · 审计日志</p></div><span class="status">个人演示原型</span></div>
-  <div class="grid"><section class="card"><form id="form">
-    <div><label>员工编号</label><input name="employee_id" value="E1001"></div>
-    <div><label>费用类型</label><select name="expense_type"><option>交通费</option><option>餐饮费</option><option>差旅费</option><option>办公费</option></select></div>
-    <div><label>报销金额</label><input name="amount" type="number" value="680"></div>
-    <div><label>发票号码</label><input name="invoice_no" value="INV-DEMO-001"></div>
-    <div><label>发生日期</label><input name="expense_date" type="date" value="2026-07-01"></div>
-    <div><label>所属部门（系统将以员工档案为准）</label><input name="department" value="销售部"></div>
-    <div class="full"><label>用途说明</label><textarea name="purpose">拜访客户产生的高铁费用</textarea></div>
-    <button>提交AI预审</button>
-  </form></section>
-  <section class="card" id="result"><div class="empty">填写报销信息后查看预审结果</div></section></div>
-</div><script>
-const form=document.querySelector('#form'),result=document.querySelector('#result');
-form.addEventListener('submit',async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form));const res=await fetch('/api/precheck',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const d=await res.json();result.innerHTML=`<span class="status">${d.success?'流程完成':'需要处理'}</span><div class="decision">${d.decision}</div><div class="risk">风险等级：${d.risk_level}</div><h3>判断依据</h3><ul class="list">${d.reasons.map(x=>`<li>${x}</li>`).join('')}</ul>${d.missing_fields.length?`<h3>缺失材料</h3><ul>${d.missing_fields.map(x=>`<li>${x}</li>`).join('')}</ul>`:''}<div class="meta">下一步：${d.next_step}<br>审批单号：${d.application_id??'未生成'}<br>制度来源：${d.policy_sources.join('、')||'无'}</div>`});
-</script></body></html>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">费</span>
+      <div>
+        <h1>企业费用报销中心</h1>
+        <p>材料预审、审批流转与审计留痕</p>
+      </div>
+    </div>
+    <div class="identity">
+      <label for="identity-select">当前身份</label>
+      <select id="identity-select" aria-label="切换演示身份"></select>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="费用报销功能">
+    <button class="tab active" data-tab="submit">发起报销</button>
+    <button class="tab" data-tab="pending">待我处理 <span id="pending-count"></span></button>
+    <button class="tab" data-tab="records">申请记录</button>
+  </nav>
+
+  <main class="page">
+    <section id="submit-view" class="view active">
+      <div class="section-head">
+        <div>
+          <h2>发起费用报销</h2>
+          <p>员工与部门来自当前登录身份，金额和审批结论由规则引擎校验。</p>
+        </div>
+        <span class="ai-boundary">AI仅辅助材料理解</span>
+      </div>
+
+      <div id="profile-card" class="profile-card"></div>
+
+      <form id="expense-form" class="expense-form">
+        <div class="field">
+          <label for="expense-type">费用类型</label>
+          <select id="expense-type" name="expense_type" required>
+            <option value="">请选择费用类型</option>
+            <option>交通费</option>
+            <option>餐饮费</option>
+            <option>差旅费</option>
+            <option>办公费</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="amount">报销金额（元）</label>
+          <input id="amount" name="amount" type="number" min="0.01" step="0.01" required>
+        </div>
+        <div class="field">
+          <label for="invoice-no">发票号码</label>
+          <input id="invoice-no" name="invoice_no" autocomplete="off" required>
+        </div>
+        <div class="field">
+          <label for="expense-date">费用发生日期</label>
+          <input id="expense-date" name="expense_date" type="date" required>
+        </div>
+        <div class="field full">
+          <label for="purpose">用途说明</label>
+          <textarea id="purpose" name="purpose" rows="4" placeholder="请说明业务目的、对象、地点或行程信息" required></textarea>
+          <small>大模型只检查材料表达是否清楚，不参与金额和最终审批。</small>
+        </div>
+        <div class="field full">
+          <label for="attachment">票据附件（可选）</label>
+          <input id="attachment" type="file" accept=".pdf,.png,.jpg,.jpeg">
+          <small id="attachment-status">支持PDF、PNG、JPG、JPEG，单个文件不超过5MB。</small>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="button secondary" id="reset-form">清空</button>
+          <button type="submit" class="button primary" id="submit-button">提交预审</button>
+        </div>
+      </form>
+
+      <section id="decision-panel" class="decision-panel hidden" aria-live="polite"></section>
+    </section>
+
+    <section id="pending-view" class="view">
+      <div class="section-head">
+        <div>
+          <h2>待我处理</h2>
+          <p id="pending-description">仅展示当前身份有权限处理的申请。</p>
+        </div>
+        <button class="button secondary refresh-list" data-scope="pending">刷新</button>
+      </div>
+      <div id="pending-list" class="application-list"></div>
+    </section>
+
+    <section id="records-view" class="view">
+      <div class="section-head">
+        <div>
+          <h2>申请记录</h2>
+          <p>查看申请状态、审批动作和完整审计时间线。</p>
+        </div>
+        <button class="button secondary refresh-list" data-scope="all">刷新</button>
+      </div>
+      <div id="records-list" class="application-list"></div>
+    </section>
+  </main>
+
+  <dialog id="detail-dialog" class="detail-dialog">
+    <div class="dialog-head">
+      <div>
+        <span class="eyebrow">报销申请详情</span>
+        <h2 id="detail-title">申请单</h2>
+      </div>
+      <button class="icon-button" id="close-detail" aria-label="关闭详情">×</button>
+    </div>
+    <div id="detail-content"></div>
+  </dialog>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
