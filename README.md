@@ -22,19 +22,27 @@
 
 大模型输出只是一条建议，不能绕过业务 API、权限、参数校验和人工节点。客服项目不允许模型直接读取任意订单；报销项目不允许模型决定预算、金额合规或最终审批。
 
-## 演示截图
+## 当前版本演示截图
 
-### 直播电商智能客服
+以下截图均来自当前本地 Web 页面和模拟业务数据，不使用概念效果图。
 
-![电商客服多轮订单查询](docs/screenshots/ecommerce-agent-demo.png)
+### 直播电商智能客服：订单上下文复用
 
-### 企业费用报销：真实 AI 材料理解与制度检索
+用户先补充 `DD1001` 完成订单查询，随后只问“物流到哪里了”，系统复用当前用户已通过归属校验的订单，不重复索要订单号。页面仅呈现顾客与店铺客服对话，不向顾客暴露 Router、Tool 或内部错误字段。
 
-![费用报销 AI 与 RAG 预审结果](docs/screenshots/expense-agent-ai-rag-result.png)
+![新版客服会话：订单状态查询后继续追问物流](docs/screenshots/ecommerce-customer-chat-current.png)
 
-### 企业费用报销：审批记录
+### 企业费用报销：AI 材料理解与向量制度检索
 
-![费用报销审批记录](docs/screenshots/expense-approval-record.png)
+办公费申请由 DeepSeek 生成受约束的材料摘要和补充风险提示，阿里云 Embedding + Chroma 返回带来源标识的制度依据；金额、预算和审批结果仍由确定性规则与数据库控制。
+
+![新版报销详情：AI材料摘要与向量制度依据](docs/screenshots/expense-agent-ai-rag-result.png)
+
+### 企业费用报销：退回、重提与审计时间线
+
+差旅费申请完整记录员工提交、主管退回、员工补充重提和主管同意，每个动作保留操作者、角色、意见与时间，能够还原真实审批过程。
+
+![新版报销详情：退回重提与审批审计时间线](docs/screenshots/expense-approval-audit-timeline.png)
 
 ## 一键启动
 
